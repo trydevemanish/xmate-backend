@@ -1,15 +1,16 @@
+from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 # Create your models here.
-class User(models.Model):
-    name = models.TextField(max_length=30)
+class User(AbstractUser):
     email = models.EmailField(unique=True)
-    password = models.TextField(min=8,max_length=23)
     total_game_played = models.PositiveIntegerField(default=0)
     total_game_win = models.PositiveIntegerField(default=0)
     total_game_losses = models.PositiveIntegerField(default=0)
     total_game_draw = models.PositiveIntegerField(default=0)
     total_points = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     # this method will help to update the score of the user 
     def Update_stats(self,win=False,loss=False,draw=False):
