@@ -9,6 +9,7 @@ class User(AbstractUser):
     total_game_losses = models.PositiveIntegerField(default=0)
     total_game_draw = models.PositiveIntegerField(default=0)
     total_points = models.PositiveIntegerField(default=0)
+    refreshtoken = models.CharField(max_length=500,null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
