@@ -17,7 +17,7 @@ def protectedRoute(request):
     if user is None:
         return JsonResponse({'message':'User is empty'},status=400)
     
-    return JsonResponse({'message':''})
+    return JsonResponse({'user':user},status=200)
     
 
     

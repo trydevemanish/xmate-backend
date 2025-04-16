@@ -1,9 +1,11 @@
 import json
-from .models import User
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from utils import generateAccesstoken
 from django.contrib.auth import authenticate
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 # Register user 
 @csrf_exempt
@@ -76,3 +78,58 @@ def loginUser(request):
             return JsonResponse({'message':f'Failed to login User: {str(e)}'},status=500)
         
     return JsonResponse({'message':'Invalid Login Request'},status=405)
+
+
+# Logout User 
+@csrf_exempt
+def logoutUser(request):
+    if request.method == 'POST':
+        try:
+
+            data = json.load(request.body)
+            refresh_token = data.get('refresh_token')
+
+            if not refresh_token:
+                return JsonResponse({'message': 'UnAuthorisied user'}, status=400)
+            
+            user = User.objects.filter(refreshtoken=refresh_token).first()
+
+            if not user:
+                return JsonResponse({'message': 'Invalid refresh token'}, status=400)
+            
+            user.refreshtoken = None
+            user.save()
+
+            return JsonResponse({'message':'User logout'},status=200)
+
+        except Exception as e:
+            return JsonResponse({'message':f'Issue Occured in logout user {str(e)}'},status=400)
+    else : 
+        return JsonResponse({'message':'Invalid request'},status=405)
+    
+
+# fetch User detail 
+@csrf_exempt
+def fetchUserdetail(request):
+
+    if request.method == 'GET':
+        try:
+            data = json.load(request.body)
+            refresh_token = data.get('refresh_token')
+
+            if not refresh_token:
+                return JsonResponse({'message': 'UnAuthorisied user'}, status=400)
+            
+            user = User.objects.filter(refreshtoken=refresh_token).first()
+
+            if not user:
+                return JsonResponse({'message': 'Invalid refresh token'}, status=400)
+            
+            return JsonResponse({'message':'User Data','Data':user},status=200)
+            
+        except Exception as e:
+            return JsonResponse({'message':f'Issue Occured fetching User detail'},status=500)
+    else:
+        return JsonResponse({'message':'Invalid request'},status=405)
+    
+    
