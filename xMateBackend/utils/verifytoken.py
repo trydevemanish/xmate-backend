@@ -15,7 +15,7 @@ def verifyToken(token):
         if not payload:
             return JsonResponse({'message':'Invalid token passed ,Payload not present'},status=400)
         
-        user_id = payload.get('_id')
+        user_id = payload.get('id')
         user = User.objects.get(id=user_id)
 
         if not user:

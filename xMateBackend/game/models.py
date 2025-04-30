@@ -9,7 +9,6 @@ class Game(models.Model):
         ('in_progress','In_Progess'),
         ('completed','Completed'),
     ]
-
     player_1 = models.ForeignKey(settings.AUTH_USER_MODEL,related_name='game_as_player1',on_delete=models.CASCADE)
     player_2 = models.ForeignKey(settings.AUTH_USER_MODEL,related_name='game_as_player2', on_delete=models.CASCADE)
     moves = models.JSONField(default=list)

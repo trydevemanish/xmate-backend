@@ -5,7 +5,7 @@ from django.http import JsonResponse
 
 def generateAccesstoken(userid):
     access_token_payload = {
-        "_id" : userid,
+        "id" : userid,
         'exp' : datetime.now() + timedelta(days=3),
         'iat': datetime.now(),
     }
@@ -16,7 +16,7 @@ def generateAccesstoken(userid):
         return JsonResponse({'message':'Issue generating accesstoken.'},status=400)
 
     refresh_token_payload = {
-        "_id" : userid,
+        "id" : userid,
         'exp':datetime.now() + timedelta(days=3),
         'iat' : datetime.now()
     }

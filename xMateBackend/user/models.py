@@ -4,6 +4,7 @@ from django.db import models
 # Create your models here.
 class User(AbstractUser):
     email = models.EmailField(unique=True)
+    password = models.CharField(max_length=500,null=True)
     total_game_played = models.PositiveIntegerField(default=0)
     total_game_win = models.PositiveIntegerField(default=0)
     total_game_losses = models.PositiveIntegerField(default=0)
