@@ -2,6 +2,7 @@ import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from utils import generateAccesstoken
+from utils.protectedroute import protectedRoute
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth import get_user_model
 
@@ -71,9 +72,6 @@ def loginUser(request):
             # generate access or refresh token 
             access_token,refresh_token = generateAccesstoken.generateAccesstoken(exixtedUser.id)
 
-            print("token geneatated : access_token",access_token)
-            print("token geneatated : refresh_token",refresh_token)
-
             exixtedUser.refreshtoken = refresh_token
             exixtedUser.save()
 
@@ -91,16 +89,19 @@ def loginUser(request):
 
 # Logout User 
 @csrf_exempt
+@protectedRoute
 def logoutUser(request):
     if request.method == 'POST':
         try:
 
-            userid = request.user.id
+            userid = request.userid
+
+            print('userid in logout route',userid)
 
             if not userid:
                 return JsonResponse({'message':'Unauthoriised user'},status=400)
             
-            user = User.objects.filter(id=userid).first()
+            user = User.objects.get(id=userid)
 
             if not user:
                 return JsonResponse({'message':'Invalid Id user not found'},status=400)
