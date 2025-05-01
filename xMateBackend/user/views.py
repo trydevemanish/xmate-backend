@@ -96,8 +96,6 @@ def logoutUser(request):
 
             userid = request.userid
 
-            print('userid in logout route',userid)
-
             if not userid:
                 return JsonResponse({'message':'Unauthoriised user'},status=400)
             
@@ -119,21 +117,22 @@ def logoutUser(request):
 
 # fetch User detail 
 @csrf_exempt
+@protectedRoute
 def fetchLoginUserdetail(request):
 
     if request.method == 'GET':
         try:
-            userid = request.user.id
+            userid = request.userid
 
             if not userid:
                 return JsonResponse({'message':'Unauthoriised user'},status=400)
             
-            user = User.objects.filter(id=userid).first()
+            user = User.objects.get(id=userid)
 
             if not user:
                 return JsonResponse({'message':'Invalid Id user not found'},status=400)
             
-            return JsonResponse({'message':'User Data','Data':user},status=200)
+            return JsonResponse({'message':'User Data','Data':user.username},status=200)
             
         except Exception as e:
             return JsonResponse({'message':f'Issue Occured fetching User detail'},status=500)
