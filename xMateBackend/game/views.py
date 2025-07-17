@@ -74,7 +74,7 @@ def player2joinmatch(request):
             game.status = 'In_Progess'
             game.save()
             
-            return JsonResponse({'message':'Game state update after player 2 join match'},status=200)
+            return JsonResponse({'message':'Game state update after player 2 join match','notify' : 'player 2 joined'},status=200)
 
         except Exception as e:
             return JsonResponse({'message':f'Failed to Join match as a opponent: {str(e)}'},status=500)
