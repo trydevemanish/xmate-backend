@@ -69,39 +69,56 @@ def player2joinmatch(request):
             player2userid = request.userid
 
             if not player2userid:
-                return JsonResponse({'message':'Unauthorised User'},status=400)
+                return JsonResponse({'message':'Unauthorised User'},status=status.HTTP_400_BAD_REQUEST)
 
             data = json.loads(request.body)
             game_id = data.get('game_id')
 
             if not game_id:
-                return JsonResponse({'message':'game_id is needed'},status=400)
+                return JsonResponse({'message':'game_id is needed'},status=status.HTTP_400_BAD_REQUEST)
             
             checkifgameidexits = Game.objects.filter(game_id=game_id).exists()
 
             if not checkifgameidexits:
-                return JsonResponse({'message':'Invalid game_id'},status=400)
+                return JsonResponse({'message':'Invalid game_id'},status=status.HTTP_400_BAD_REQUEST)
             
             try:
                 game = Game.objects.get(game_id=game_id)
             except Game.DoesNotExist:
-                return JsonResponse({'message': 'Game not found'}, status=404)
+                return JsonResponse({'message': 'Game not found'}, status=status.HTTP_400_BAD_REQUEST)
             
             if game.player_2:
-                return JsonResponse({'message': 'This game is already full'}, status=400)
+                return JsonResponse({'message': 'This game is already full'}, status=status.HTTP_400_BAD_REQUEST)
             
             if game.status == 'Player_2_Joined': 
-                 return JsonResponse({'message': 'This game is no longer accepting players'}, status=400)
+                return JsonResponse({'message': 'This game is no longer accepting players'}, status=status.HTTP_400_BAD_REQUEST)
             
-            game.player_2 = player2userid
+            try:
+                player_2_user_instance = User.objects.get(id=player2userid)
+                if not player_2_user_instance or player_2_user_instance is None:
+                    return JsonResponse({'message':'user id is not valid'},status=status.HTTP_400_BAD_REQUEST)
+            except:
+                return JsonResponse({'message': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            # here we will check if user is any game 
+            checkUserAlreadyExitsInAnyGame = Game.objects.get(
+                player_2 = player_2_user_instance,
+                game_status = 'pending' or 'in_progress'
+            )
+
+            # if yes then send a message 
+            if checkUserAlreadyExitsInAnyGame:
+                return JsonResponse({'message':'User is already in game'},status=status.HTTP_400_BAD_REQUEST)
+            
+            game.player_2 = player_2_user_instance
             game.player_2_status = 'Player_2_Joined'
             game.status = 'In_Progess'
             game.save()
             
-            return JsonResponse({'message':'Game state update after player 2 join match','notify' : 'player 2 joined'},status=200)
+            return JsonResponse({'message':'Game state update after player 2 join match','notify' : 'player 2 joined'},status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            return JsonResponse({'message':f'Failed to Join match as a opponent: {str(e)}'},status=500)
+            return JsonResponse({'message':f'Failed to Join match as a opponent: {str(e)}'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     else :
-        return JsonResponse({'message':'Invalid Request'},status=405)
+        return JsonResponse({'message':'Invalid Request'},status=status.HTTP_400_BAD_REQUEST)
 
