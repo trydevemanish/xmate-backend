@@ -22,7 +22,7 @@ class Game(models.Model):
     game_draw = models.BooleanField(default=False)
     player_2_status = models.CharField(max_length=30,choices=PLAYER_2_JOINING_STATUS,default='player_2_not_joined')
     game_status = models.CharField(max_length=20,choices=STATUS_CHOICE,default='pending')
-    created_at = models.DateTimeField(now)
+    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
 

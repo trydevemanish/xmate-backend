@@ -3,6 +3,10 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from utils.protectedroute import protectedRoute
 from . models import Game
+from .serializers import GameSerializer
+from rest_framework import status
+from django.contrib.auth import get_user_model
+User = get_user_model()
 
 # Create your views here.
 @csrf_exempt
@@ -10,31 +14,51 @@ from . models import Game
 def createMatchbtwChallengers(request):
     if request.method == 'POST':
         try:
-            # player 1 user id which will create the match and he is logged in 
+            # player 1 user id the one who will create the match and he is logged in 
             player1userid = request.userid
 
             if not player1userid:
-                return JsonResponse({'message':'Un authorised user'},status=400)
+                return JsonResponse({'message':'UnAuthorised user'},status=status.HTTP_400_BAD_REQUEST)
             
+            try:
+                user_instance = User.objects.get(id=player1userid)
+                if not user_instance or user_instance is None:
+                    return JsonResponse({'message':'user id is not valid'},status=status.HTTP_400_BAD_REQUEST)
+            except:
+                return JsonResponse({'message': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            # here we will check if user is any game 
+            checkUserAlreadyExitsInAnyGame = Game.objects.get(
+                player_1 = user_instance,
+                game_status = 'pending' or 'in_progress'
+            )
+
+            # if yes then send a message 
+            if checkUserAlreadyExitsInAnyGame:
+                return JsonResponse({'message':'User is already in game'},status=status.HTTP_400_BAD_REQUEST)
+            
+            # if not then create a match 
             matchCreated = Game.objects.create(
-                player_1 = player1userid,
+                player_1 = user_instance,
             )
 
             if not matchCreated:
-                return JsonResponse({'message':'failed to create match'},status=400)
+                return JsonResponse({'message':'failed to create match'},status=status.HTTP_400_BAD_REQUEST)
+            
+            gameMatchSerializer = GameSerializer(matchCreated)
+
+            if not gameMatchSerializer:
+                return JsonResponse({'message':'failed to serialise game data'},status=status.HTTP_400_BAD_REQUEST)
             
             return JsonResponse({
                 'message':'Match Created',
-                'game_id' : matchCreated.game_id,
-                'player_1' : matchCreated.player_1,
-                'player_2' : matchCreated.player_2,
-                'status' : matchCreated.status
-            },status=201)
+                'data' : gameMatchSerializer.data
+            },status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            return JsonResponse({'message':f'Failed to create match btw challengerss: {str(e)}'},status=500)
+            return JsonResponse({'message':f'Failed to create match btw challengers: {str(e)}'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     else :
-        return JsonResponse({'message':'Invalid Request'},status=405)
+        return JsonResponse({'message':'Invalid Request'},status=status.HTTP_400_BAD_REQUEST)
 
 
 # When someone click on the link then this function will run and add this user to that match 

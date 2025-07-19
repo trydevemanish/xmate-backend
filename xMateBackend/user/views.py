@@ -79,7 +79,7 @@ def loginUser(request):
             print(refresh_token)
             
             return JsonResponse({
-                'message':'User Login successfully',
+                'message':'Login successfully',
                 'access_token' :access_token,
                 'refresh_token' : refresh_token
             },status=status.HTTP_200_OK)
