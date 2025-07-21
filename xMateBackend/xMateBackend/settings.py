@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'game',
     'leaderboard',
     'user',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
@@ -56,7 +57,19 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.security.SecurityMiddleware',
 ]
+
+
+CORS_ORIGIN_WHITELIST = [
+    'http://localhost:5173',  # Example: React app on localhost
+    'https://your-frontend-domain.com',
+    # Add other allowed origins
+]
+
+CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = 'xMateBackend.urls'
 

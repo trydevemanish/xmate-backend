@@ -63,6 +63,7 @@ def createMatchbtwChallengers(request):
 
 # When someone click on the link then this function will run and add this user to that match 
 @csrf_exempt
+@protectedRoute
 def player2joinmatch(request):
     if request.method == 'POST':
         try:
@@ -122,3 +123,38 @@ def player2joinmatch(request):
     else :
         return JsonResponse({'message':'Invalid Request'},status=status.HTTP_400_BAD_REQUEST)
 
+# check if 2nd user has joined the match 
+@csrf_exempt
+def checkifPlayer_2_hasJoinedGame(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            game_id = data.get('game_id')
+
+            if not game_id:
+                return JsonResponse({'message':'game_id is needed'},status=status.HTTP_400_BAD_REQUEST)
+            
+            checkifgameidexits = Game.objects.filter(game_id=game_id).exists()
+
+            if not checkifgameidexits:
+                return JsonResponse({'message':'Invalid game_id'},status=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                game = Game.objects.get(game_id=game_id)
+            except Game.DoesNotExist:
+                return JsonResponse({'message': 'Game not found'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # checking if player2 has joined or not 
+            checkifPlayer_2_has_joined = game.objects.exists(
+                player_2_status='player_2_joined'
+            )
+
+            if not checkifPlayer_2_has_joined:
+                return JsonResponse({'message': 'player_2_has_not_joined_yet'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            return JsonResponse({'message': 'player_2_has_joined'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return JsonResponse({'message':f'Failed to Join match as a opponent: {str(e)}'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    else:
+        return JsonResponse({'message':'Invalid Request'},status=status.HTTP_400_BAD_REQUEST)
+    
