@@ -28,14 +28,14 @@ def createMatchbtwChallengers(request):
                 return JsonResponse({'message': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
             
             # here we will check if user is any game 
-            checkUserAlreadyExitsInAnyGame = Game.objects.get(
+            checkUserAlreadyExitsInAnyGame = Game.objects.filter(
                 player_1 = user_instance,
                 game_status = 'pending' or 'in_progress'
-            )
+            ).exists()
 
             # if yes then send a message 
             if checkUserAlreadyExitsInAnyGame:
-                return JsonResponse({'message':'User is already in game'},status=status.HTTP_400_BAD_REQUEST)
+                return JsonResponse({'message':'you are already in a game'},status=status.HTTP_200_OK)
             
             # if not then create a match 
             matchCreated = Game.objects.create(
@@ -158,3 +158,47 @@ def checkifPlayer_2_hasJoinedGame(request):
     else:
         return JsonResponse({'message':'Invalid Request'},status=status.HTTP_400_BAD_REQUEST)
     
+# this will tell all the game created by the user that are in the pending or inprogess remember it will only tell the game that user has created as the player_1 not the game user joined as the player_2  
+@csrf_exempt
+@protectedRoute
+def finding_user_pending_or_inprogess_games(request):
+    if request.method == 'GET':
+        try:
+            userid = request.userid
+
+            if not userid:
+                return JsonResponse({'message':'UnAuthorised user'},status=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                user_instance = User.objects.get(id=userid)
+                if not user_instance or user_instance is None:
+                    return JsonResponse({'message':'user id is not valid'},status=status.HTTP_400_BAD_REQUEST)
+            except:
+                return JsonResponse({'message': 'User not found'},status=status.HTTP_404_NOT_FOUND)
+
+            all_the_games_user_created_as_player_1 = Game.objects.filter(
+                player_1=user_instance,
+                game_status='pending' or 'in_progress'
+            )
+
+            if not all_the_games_user_created_as_player_1:
+                return JsonResponse({'message':'No game is pending'},status=status.HTTP_200_OK)
+            
+            all_the_games_user_created_as_player_1_serialised_data = GameSerializer(all_the_games_user_created_as_player_1)
+
+            if not all_the_games_user_created_as_player_1_serialised_data:
+                return JsonResponse({'message':'Issue Occured while serialising game data'},status=status.HTTP_400_BAD_REQUEST)
+            
+            return JsonResponse({'message':'All pending game found','data':all_the_games_user_created_as_player_1_serialised_data.data},status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return JsonResponse({'message':f'Failed to find user pending game match: {str(e)}'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    else:
+        return JsonResponse({'message':'Invalid request'},status=status.HTTP_400_BAD_REQUEST)
+
+
+
+# needs to handle these routes 
+# fetch recent 2 games of login user
+# fetch games of the login user that are pending or in progress
+# if the game is not completed but you still need to create a new game due to any issue like player 2 is not avialabel or not want to complete the match etc in that case you can probably delete that game match and create a new game
