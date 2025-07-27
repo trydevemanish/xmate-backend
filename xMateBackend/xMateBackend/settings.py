@@ -34,8 +34,10 @@ ALLOWED_HOSTS = []
 
 
 # Application definition
+ASGI_APPLICATION = "xMateBackend.asgi.application"
 
 INSTALLED_APPS = [
+    "daphne",
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -48,6 +50,13 @@ INSTALLED_APPS = [
     'user',
     'corsheaders',
 ]
+
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

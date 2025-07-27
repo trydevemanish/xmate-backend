@@ -81,6 +81,8 @@ def player2joinmatch(request):
             
             checkifgameidexits = Game.objects.filter(game_id=game_id).exists()
 
+            print('checkifgameidexits',checkifgameidexits)
+
             if not checkifgameidexits:
                 return JsonResponse({'message':'Invalid game_id'},status=status.HTTP_400_BAD_REQUEST)
             
@@ -92,7 +94,7 @@ def player2joinmatch(request):
             if game.player_2:
                 return JsonResponse({'message': 'This game is already full'}, status=status.HTTP_400_BAD_REQUEST)
             
-            if game.status == 'Player_2_Joined': 
+            if game.game_status == 'Player_2_Joined': 
                 return JsonResponse({'message': 'This game is no longer accepting players'}, status=status.HTTP_400_BAD_REQUEST)
             
             try:
@@ -102,11 +104,13 @@ def player2joinmatch(request):
             except:
                 return JsonResponse({'message': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
             
+            print('game and user instance had found here')
+            
             # here we will check if user is any game 
-            checkUserAlreadyExitsInAnyGame = Game.objects.get(
+            checkUserAlreadyExitsInAnyGame = Game.objects.filter(
                 player_2 = player_2_user_instance,
                 game_status = 'pending' or 'in_progress'
-            )
+            ).exists()
 
             # if yes then send a message 
             if checkUserAlreadyExitsInAnyGame:
@@ -123,6 +127,7 @@ def player2joinmatch(request):
             return JsonResponse({'message':f'Failed to Join match as a opponent: {str(e)}'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     else :
         return JsonResponse({'message':'Invalid Request'},status=status.HTTP_400_BAD_REQUEST)
+
 
 # check if 2nd user has joined the match 
 @csrf_exempt
@@ -159,6 +164,7 @@ def checkifPlayer_2_hasJoinedGame(request):
     else:
         return JsonResponse({'message':'Invalid Request'},status=status.HTTP_400_BAD_REQUEST)
     
+
 # this will tell all the game created by the user that are in the pending or inprogess remember it will only tell the game that user has created as the player_1 not the game user joined as the player_2  
 @csrf_exempt
 @protectedRoute
@@ -177,7 +183,7 @@ def finding_user_pending_or_inprogess_games(request):
             except:
                 return JsonResponse({'message': 'User not found'},status=status.HTTP_404_NOT_FOUND)
 
-            all_the_games_user_created_as_player_1 = Game.objects.filter(
+            all_the_games_user_created_as_player_1 = Game.objects.get(
                 player_1=user_instance,
                 game_status='pending' or 'in_progress'
             )
@@ -197,7 +203,8 @@ def finding_user_pending_or_inprogess_games(request):
     else:
         return JsonResponse({'message':'Invalid request'},status=status.HTTP_400_BAD_REQUEST)
 
-# finding two games either user created or joined a macth created by another game 
+
+# finding two games either user created or joined a match created by another game 
 @csrf_exempt
 @protectedRoute
 def finding_user_recent_two_games(request):
@@ -216,13 +223,14 @@ def finding_user_recent_two_games(request):
                 return JsonResponse({'message': 'User not found'},status=status.HTTP_404_NOT_FOUND)
             
             two_recent_game_played_by_user = Game.objects.filter(
-                Q(player_1=user_instance) | Q(player_2=user_instance)
+                (Q(player_1=user_instance) | Q(player_2=user_instance)) &
+                Q(player_1__isnull=False)
             ).order_by('-created_at')[:2]
 
             if not two_recent_game_played_by_user:
                 return JsonResponse({'message':'User have not joined any game'},status=status.HTTP_404_NOT_FOUND)
             
-            two_recent_game_played_by_user_serialised_data = GameSerializer(two_recent_game_played_by_user)
+            two_recent_game_played_by_user_serialised_data = GameSerializer(two_recent_game_played_by_user,many=True)
 
             if not two_recent_game_played_by_user_serialised_data:
                 return JsonResponse({'message':'Issue Occured while serialising game data'},status=status.HTTP_400_BAD_REQUEST)
@@ -233,6 +241,7 @@ def finding_user_recent_two_games(request):
             return JsonResponse({'message':f'Failed to find user pending game match: {str(e)}'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     else:
         return JsonResponse({'message':'Invalid request'},status=status.HTTP_400_BAD_REQUEST)
+
 
 # deleting a game would lead to decrese the ranking and other detail of the user like total game played ect .. only when game status is completed
 @csrf_exempt
@@ -283,7 +292,107 @@ def delete_a_game(request):
     else:
         return JsonResponse({'message':'Invalid request'},status=status.HTTP_400_BAD_REQUEST)
 
+@csrf_exempt
+def fetchGameData(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            game_id = data.get('game_id')
+
+            if not game_id:
+                return JsonResponse({'message':'game_id is needed'},status=status.HTTP_400_BAD_REQUEST)
+            
+            checkifgameidexits = Game.objects.filter(game_id=game_id).exists()
+
+            if not checkifgameidexits:
+                return JsonResponse({'message':'Invalid game_id'},status=status.HTTP_200_OK)
+            
+            try:
+                game_instance = Game.objects.get(game_id=game_id)
+            except Game.DoesNotExist:
+                return JsonResponse({'message': 'Game not found'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            serialised_game_instance = GameSerializer(game_instance)
+
+            if not serialised_game_instance:
+                return JsonResponse({'message':'Issue Occured while serialising game data'},status=status.HTTP_400_BAD_REQUEST)
+            
+            return JsonResponse({'message':'found game instance data','data':serialised_game_instance.data},status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return JsonResponse({'message':f'Failed to find specific gamedata: {str(e)}'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    else:
+        return JsonResponse({'message':'Invalid request'},status=status.HTTP_400_BAD_REQUEST)
+
+
+# this function will find all the games in which user is involved as player1 or player2 or if the game status is pending or completed 
+@csrf_exempt
+@protectedRoute
+def find_game_in_which_userisinvolved_can_be_pendingorcompleted(request):
+    if request.method == 'GET':
+        try:
+            userid = request.userid
+
+            if not userid:
+                return JsonResponse({'message':'UnAuthorised user'},status=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                user_instance = User.objects.get(id=userid)
+                if not user_instance or user_instance is None:
+                    return JsonResponse({'message':'user id is not valid'},status=status.HTTP_400_BAD_REQUEST)
+            except User.DoesNotExist:
+                return JsonResponse({'message': 'User not found'},status=status.HTTP_404_NOT_FOUND)
+            
+            recent_games_user_is_invloved = Game.objects.filter(
+                (Q(player_1=user_instance) | Q(player_2=user_instance)) &
+                Q(player_1__isnull=False),
+            ).order_by('-created_at')
+
+            if not recent_games_user_is_invloved:
+                return JsonResponse({'message':'User is not invloved in any game'},status=status.HTTP_404_NOT_FOUND)
+            
+            recent_game_user_isInvloved_serialised_data = GameSerializer(recent_games_user_is_invloved,many=True)
+
+            if not recent_game_user_isInvloved_serialised_data:
+                return JsonResponse({'message':'Issue Occured while serialising game data'},status=status.HTTP_400_BAD_REQUEST)
+            
+            return JsonResponse({'message':'found recent game user is involved','data':recent_game_user_isInvloved_serialised_data.data},status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return JsonResponse({'message':f'Failed to find game user is involved: {str(e)}'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    else:
+        return JsonResponse({'message':'Invalid request'},status=status.HTTP_400_BAD_REQUEST)
+    
+
+
+# finding games in which game status is pending or and player 2 status is null 
+@csrf_exempt
+def findingGameswhosestatusis_Pending(request):
+    if request.method == 'POST':
+        try:
+            
+            games_to_join = Game.objects.filter(
+                Q(game_status='pending' or 'in_progress') & Q(player_2_status='player_2_not_joined')
+            ).order_by('-created_at')
+
+            if not games_to_join:
+                return JsonResponse({'message':'No'},status=status.HTTP_404_NOT_FOUND)
+            
+            games_to_join_serialised_data = GameSerializer(games_to_join,many=True)
+
+            if not games_to_join_serialised_data:
+                return JsonResponse({'message':'Issue Occured while serialising game data'},status=status.HTTP_400_BAD_REQUEST)
+            
+            return JsonResponse({'message':'found games','data':games_to_join_serialised_data.data},status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return JsonResponse({'message':f'Failed to find game: {str(e)}'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    else:
+        return JsonResponse({'message':'Invalid request'},status=status.HTTP_400_BAD_REQUEST)
+
 # needs to handle these routes 
 # fetch recent 2 games of login user - done
 # fetch games of the login user that are pending or in progress - done
+# fetch games user is involved in it can be complete or pending 
+# fetch some games whose status is pending 
 # if the game is not completed but you still need to create a new game due to any issue like player 2 is not avialabel or not want to complete the match etc in that case you can probably delete that game match and create a new game
