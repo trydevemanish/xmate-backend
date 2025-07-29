@@ -57,7 +57,7 @@ class GameComsumer(AsyncWebsocketConsumer):
             board.push(move)
 
         print('board.fen()',board.fen())
-        print('board.turn',board.turn,'White' if board.turn else 'Black')
+        # print('board.turn',board.turn,'White' if board.turn else 'Black')
 
         # Broadcasting the fen move to all 
         await self.channel_layer.group_send(
@@ -65,7 +65,7 @@ class GameComsumer(AsyncWebsocketConsumer):
             {
                 'type' : 'game_state',
                 'fen'  :  board.fen(),
-                'turn' :  board.turn
+                'turn' :  'White' if board.turn else 'Black'
             }
         )
     
@@ -100,12 +100,14 @@ class GameComsumer(AsyncWebsocketConsumer):
                     'user': self.user,
                     'status': online
                 }
-            )
+            ) 
 
         elif action == 'make-move':
             move_passed = text_data_json.get('move_passed') #Example like this - e6e9
+            print('move_passed downward of actions',move_passed)
+            move_passed_converted_from_uci = chess.Move.from_uci(move_passed)
             # check is move is legal 
-            if not board.is_legal(move_passed):
+            if not board.is_legal( move_passed_converted_from_uci):
                 # show a message to the frontend end that the move is not legal
                 await self.channel_layer.group_send(
                     self.room_group_name,
@@ -149,8 +151,11 @@ class GameComsumer(AsyncWebsocketConsumer):
                     }
                 )
 
+            print('trying to add the move to the board') 
+
             # if Everycheck pass then update the board with the move 
-            board.push(move=move_passed)
+            board.push(move_passed_converted_from_uci)
+            print('successfully added the move to the board')   
 
             # adding the move take time to the backend will sure take time so sending the message early that game updated 
             # Broadcast the game state to both player 
@@ -159,20 +164,24 @@ class GameComsumer(AsyncWebsocketConsumer):
                 {
                     'type' : 'game_state',
                     'fen'  :  board.fen(),
-                    'turn' :  board.turn
+                    'turn' :  'White' if board.turn else 'Black'
                 }
             )
 
             # now add the move to the backend
             game = await sync_to_async(Game.objects.filter(game_id=self.game_id).first)()
             # game = Game.objects.filter(game_id=self.game_id)
-            if not game.exists:
-                print('Game id is invalid')
+            if not game:
+                print('Game id is invalid, failed to find game instance')
                 return 
+            
+            print('got the game_instance')
 
             # await sync_to_async()
             game.moves.append(move_passed)
-            game.save()
+
+            print('appended the move in the game_instance')
+            await sync_to_async(game.save)()
             print('Move Added to the backend',move_passed)
 
     
@@ -199,7 +208,7 @@ class GameComsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'action': 'make-move',
             'fen'  :  board.fen(),
-            'turn' :  board.turn
+            'turn' :  'White' if board.turn else 'Black'
         }))
 
 
