@@ -4,8 +4,9 @@ from urllib.parse import parse_qs
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
 from .models import Game
+from collections import defaultdict
 
-board = chess.Board()
+boards = defaultdict(chess.Board)
 
 class GameComsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -52,9 +53,30 @@ class GameComsumer(AsyncWebsocketConsumer):
             await self.close()
             return
         
-        for move_uci in game.moves:
-            move = chess.Move.from_uci(move_uci)
-            board.push(move)
+        # Initialize the chess board if it doesn't exist
+        if self.game_id not in boards:
+            board = chess.Board()
+            for move_uci in game.moves:
+                print("Before push - FEN:", board.fen())
+                move = chess.Move.from_uci(move_uci)
+                if board.is_legal(move):
+                    board.push(move)
+                else:
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            "type": "game_event",
+                            "event": "move_not_legal",
+                            "message": f"${move} is not a legal move"
+                        }
+                    )
+                    await self.close()
+                    return
+                
+            boards[self.game_id] = board
+        else:
+            board = boards[self.game_id]
+
 
         print('board.fen()',board.fen())
         # print('board.turn',board.turn,'White' if board.turn else 'Black')
@@ -103,11 +125,19 @@ class GameComsumer(AsyncWebsocketConsumer):
             ) 
 
         elif action == 'make-move':
+            # board instance from the dictaniory
+            board = boards[self.game_id]
             move_passed = text_data_json.get('move_passed') #Example like this - e6e9
             print('move_passed downward of actions',move_passed)
+
             move_passed_converted_from_uci = chess.Move.from_uci(move_passed)
+
             # check is move is legal 
-            if not board.is_legal( move_passed_converted_from_uci):
+            if board.is_legal( move_passed_converted_from_uci):
+                # if Everycheck pass then update the board with the move 
+                board.push(move_passed_converted_from_uci)
+                print('successfully added the move to the board') 
+            else:
                 # show a message to the frontend end that the move is not legal
                 await self.channel_layer.group_send(
                     self.room_group_name,
@@ -117,7 +147,7 @@ class GameComsumer(AsyncWebsocketConsumer):
                         "message": f"${move_passed} not legal move"
                     }
                 )
-
+                
             if board.is_check():
                 # show a message to the frontend end that the board is in check 
                 await self.channel_layer.group_send(
@@ -125,7 +155,7 @@ class GameComsumer(AsyncWebsocketConsumer):
                     {
                         "type": "game_event",
                         "event": "check",
-                        "message": f"Player {board.turn} is in check!"
+                        "message": f"Player {'White' if board.turn else 'Black'} is in check!"
                     }
                 )
 
@@ -136,7 +166,8 @@ class GameComsumer(AsyncWebsocketConsumer):
                     {
                         "type": "game_event",
                         "event": "checkmate",
-                        "message": f"Checkmate! Player {not board.turn} wins!"
+                        # "message": f"Checkmate! Player {not board.turn} wins!"
+                        "message": f"Checkmate! Player {'Black' if board.turn else 'White'} wins!"
                     }
                 )
 
@@ -150,12 +181,6 @@ class GameComsumer(AsyncWebsocketConsumer):
                         "message": "Stalemate! The game is a draw."
                     }
                 )
-
-            print('trying to add the move to the board') 
-
-            # if Everycheck pass then update the board with the move 
-            board.push(move_passed_converted_from_uci)
-            print('successfully added the move to the board')   
 
             # adding the move take time to the backend will sure take time so sending the message early that game updated 
             # Broadcast the game state to both player 
@@ -184,6 +209,20 @@ class GameComsumer(AsyncWebsocketConsumer):
             await sync_to_async(game.save)()
             print('Move Added to the backend',move_passed)
 
+        elif action == 'last-message':
+            message = text_data_json.get('message')
+            print('message from the backend')
+
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "pass_last_message",
+                    "message": message
+                }
+            )
+
+            
+
     
     # to broadcast the online status of the user to the group
     async def user_status(self, event):
@@ -192,6 +231,14 @@ class GameComsumer(AsyncWebsocketConsumer):
             'action': 'online-status',
             'user': event['user'],
             'status': event['status']
+        }))
+
+    # to broadcast the game last msg the group
+    async def pass_last_message(self, message):
+        # Send user status to WebSocket
+        await self.send(text_data=json.dumps({
+            'action': 'last-message',
+            "message": message
         }))
 
     # to broadcast the game event of the board to the group
@@ -205,6 +252,9 @@ class GameComsumer(AsyncWebsocketConsumer):
 
     # to broadcast the game_state of the board to the group
     async def game_state(self,event):
+        # board instance from the dictaniory
+        board = boards[self.game_id]
+
         await self.send(text_data=json.dumps({
             'action': 'make-move',
             'fen'  :  board.fen(),

@@ -143,6 +143,28 @@ def fetchLoginUserdetail(request):
     else:
         return JsonResponse({'message':'Invalid request'},status=status.HTTP_400_BAD_REQUEST)
     
+
+# update the user stats after winning 
 # @csrf_exempt
-# def updatePassWord():
-#     pass 
+# @protectedRoute
+# def updateStatsAfterWinning(request):
+    if request.method == 'GET':
+        try:
+            id = request.userid
+
+            if not id:
+                return JsonResponse({'message':'Unauthoriised user'},status=status.HTTP_404_NOT_FOUND)
+            
+            user = User.objects.get(id=id)
+
+            if not user:
+                return JsonResponse({'message':'Invalid Id user not found'},status=status.HTTP_404_NOT_FOUND)
+            
+            user.Update_stats(win=True)
+
+            return JsonResponse({'message':'User Match Updated'},status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return JsonResponse({'message':f'Issue Occured fetching User detail'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    else:
+        return JsonResponse({'message':'Invalid request'},status=status.HTTP_400_BAD_REQUEST)
