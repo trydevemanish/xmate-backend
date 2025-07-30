@@ -10,4 +10,5 @@ urlpatterns = [
     path('game_instance/',views.fetchGameData),
     path('user_involved_in_games/',views.find_game_in_which_userisinvolved_can_be_pendingorcompleted),
     path('delete_game/',views.delete_a_game),
+    path('updatestats_aftercheckmate/',views.UpdateGameStatsAfterWinning),
 ]

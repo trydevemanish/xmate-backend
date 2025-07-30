@@ -390,6 +390,36 @@ def findingGameswhosestatusis_Pending(request):
     else:
         return JsonResponse({'message':'Invalid request'},status=status.HTTP_400_BAD_REQUEST)
 
+@csrf_exempt
+def UpdateGameStatsAfterWinning(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            id = data.get('userid')
+            gameid = data.get('gameid')
+
+            if not id or not gameid:
+                return JsonResponse({'message':'Id not present'},status=status.HTTP_404_NOT_FOUND)
+            
+            try:
+                user_instance = User.objects.get(id=id)
+                if not user_instance or user_instance is None:
+                    return JsonResponse({'message':'user id is not valid'},status=status.HTTP_400_BAD_REQUEST)
+            except User.DoesNotExist:
+                return JsonResponse({'message': 'User not found'},status=status.HTTP_404_NOT_FOUND)
+            
+            game_instance = Game.objects.filter(game_id=gameid).first
+
+            if not game_instance:
+                return JsonResponse({'message': 'game instance is not valid'},status=status.HTTP_404_NOT_FOUND)
+            
+            game_instance.end_game(winner=user_instance)
+            return JsonResponse({'message':'game stats updated success'},status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return JsonResponse({'message':f'Issue Occured Updatine User stats'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    else:
+        return JsonResponse({'message':'Invalid request'},status=status.HTTP_400_BAD_REQUEST)
 # needs to handle these routes 
 # fetch recent 2 games of login user - done
 # fetch games of the login user that are pending or in progress - done
