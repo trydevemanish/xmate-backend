@@ -7,6 +7,7 @@ from .models import Game
 from collections import defaultdict
 
 boards = defaultdict(chess.Board)
+user_connections = {}
 
 class GameComsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -16,6 +17,8 @@ class GameComsumer(AsyncWebsocketConsumer):
         query_string = self.scope['query_string'].decode('utf-8')
         query_params = parse_qs(query_string)
         self.user = query_params.get('user', [None])[0] 
+        self.user_id = query_params.get('user_id', [None])[0] 
+
         print('usersname',self.user)
         print('game id',self.game_id)
 
@@ -37,14 +40,20 @@ class GameComsumer(AsyncWebsocketConsumer):
         await self.accept()
 
         # Broadcast the user's online status to the group
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type' : 'user_status',
-                'user': self.user,
-                'status' : 'online'
-            }
-        )
+        # await self.channel_layer.group_send(
+        #     self.room_group_name,
+        #     {
+        #         'type' : 'user_status',
+        #         'user': self.user,
+        #         'status' : 'online'
+        #     }
+        # )
+
+        # Mark the user as online
+        user_connections[self.user_id] = self.channel_name
+
+        # Update and broadcast player status
+        await self.update_player_status()
 
         # fetch all the game move instance and broadcast it to the room group
         game = await sync_to_async(Game.objects.filter(game_id=self.game_id).first)()
@@ -94,37 +103,46 @@ class GameComsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, close_code):
         # Leave room group
-        if hasattr(self, 'user'):
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    'type': 'user_status',
-                    'user': self.user,
-                    'status': 'offline'
-                }
-            )
+        # if hasattr(self, 'user'):
+        #     await self.channel_layer.group_send(
+        #         self.room_group_name,
+        #         {
+        #             'type': 'user_status',
+        #             'user': self.user,
+        #             'status': 'offline'
+        #         }
+        #     )
 
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
         )
+
+        # Mark the user as offline
+        if self.user_id in user_connections:
+            del user_connections[self.user_id]
+
+        # Update and broadcast player status
+        await self.update_player_status()
+
+
     
     async def receive(self,text_data):
         text_data_json = json.loads(text_data)
         action = text_data_json.get('action')
-        if action == 'online-status':
-            # Broadcast online status to the group
-            online = text_data_json.get('online', 'offline')
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    'type': 'user_status',
-                    'user': self.user,
-                    'status': online
-                }
-            ) 
+        # if action == 'online-status':
+        #     # Broadcast online status to the group
+        #     online = text_data_json.get('online', 'offline')
+        #     await self.channel_layer.group_send(
+        #         self.room_group_name,
+        #         {
+        #             'type': 'user_status',
+        #             'user': self.user,
+        #             'status': online
+        #         }
+        #     ) 
 
-        elif action == 'make-move':
+        if action == 'make-move':
             # board instance from the dictaniory
             board = boards[self.game_id]
             move_passed = text_data_json.get('move_passed') #Example like this - e6e9
@@ -147,6 +165,17 @@ class GameComsumer(AsyncWebsocketConsumer):
                         "message": f"${move_passed} not legal move"
                     }
                 )
+            
+            # adding the move take time to the backend will sure take time so sending the message early that game updated 
+            # Broadcast the game state to both player 
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type' : 'game_state',
+                    'fen'  :  board.fen(),
+                    'turn' :  'White' if board.turn else 'Black'
+                }
+            )
                 
             if board.is_check():
                 # show a message to the frontend end that the board is in check 
@@ -182,17 +211,6 @@ class GameComsumer(AsyncWebsocketConsumer):
                     }
                 )
 
-            # adding the move take time to the backend will sure take time so sending the message early that game updated 
-            # Broadcast the game state to both player 
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    'type' : 'game_state',
-                    'fen'  :  board.fen(),
-                    'turn' :  'White' if board.turn else 'Black'
-                }
-            )
-
             # now add the move to the backend
             game = await sync_to_async(Game.objects.filter(game_id=self.game_id).first)()
             # game = Game.objects.filter(game_id=self.game_id)
@@ -223,14 +241,45 @@ class GameComsumer(AsyncWebsocketConsumer):
 
             
 
+    async def update_player_status(self):
+        # now add the move to the backend
+        game = await sync_to_async(Game.objects.filter(game_id=self.game_id).first)()
+
+        # game = Game.objects.filter(game_id=self.game_id)
+        if not game:
+            print('Game id is invalid, failed to find game instance')
+            return 
+
+        player_status = {
+            'player1': 'online' if game.player_1 in user_connections else 'offline',
+            'player2': 'online' if game.player_2 in user_connections else 'offline'
+        }
+
+        # Broadcast the updated player status to all players
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'player_status',
+                'player_status': player_status
+            }
+        )
+
     
     # to broadcast the online status of the user to the group
-    async def user_status(self, event):
-        # Send user status to WebSocket
+    # async def user_status(self, event):
+    #     # Send user status to WebSocket
+    #     await self.send(text_data=json.dumps({
+    #         'action': 'online-status',
+    #         'user': event['user'],
+    #         'status': event['status']
+    #     }))
+
+    async def player_status(self, event):
+        # Send the updated player status to the WebSocket
+
         await self.send(text_data=json.dumps({
-            'action': 'online-status',
-            'user': event['user'],
-            'status': event['status']
+            'action': 'update-player-status',
+            'player_status': event['player_status']
         }))
 
     # to broadcast the game last msg the group

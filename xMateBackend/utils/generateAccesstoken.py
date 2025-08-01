@@ -18,7 +18,7 @@ def generateAccesstoken(userid):
 
     refresh_token_payload = {
         "id" : userid,
-        'exp' : (datetime.now(timezone.utc) + timedelta(days=4)).timestamp(),
+        'exp' : (datetime.now(timezone.utc) + timedelta(days=7)).timestamp(),
         'iat':datetime.now(timezone.utc).timestamp(),
     }
 

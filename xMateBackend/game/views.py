@@ -183,10 +183,10 @@ def finding_user_pending_or_inprogess_games(request):
             except:
                 return JsonResponse({'message': 'User not found'},status=status.HTTP_404_NOT_FOUND)
 
-            all_the_games_user_created_as_player_1 = Game.objects.get(
+            all_the_games_user_created_as_player_1 = Game.objects.filter(
                 player_1=user_instance,
-                game_status='pending' or 'in_progress'
-            )
+                game_status='pending',
+            ).first()
 
             if not all_the_games_user_created_as_player_1:
                 return JsonResponse({'message':'No game is pending'},status=status.HTTP_200_OK)
@@ -397,6 +397,7 @@ def UpdateGameStatsAfterWinning(request):
             data = json.loads(request.body)
             id = data.get('userid')
             gameid = data.get('gameid')
+            print('id is',id,gameid)
 
             if not id or not gameid:
                 return JsonResponse({'message':'Id not present'},status=status.HTTP_404_NOT_FOUND)
@@ -408,7 +409,7 @@ def UpdateGameStatsAfterWinning(request):
             except User.DoesNotExist:
                 return JsonResponse({'message': 'User not found'},status=status.HTTP_404_NOT_FOUND)
             
-            game_instance = Game.objects.filter(game_id=gameid).first
+            game_instance = Game.objects.filter(game_id=gameid).first()
 
             if not game_instance:
                 return JsonResponse({'message': 'game instance is not valid'},status=status.HTTP_404_NOT_FOUND)
@@ -417,7 +418,7 @@ def UpdateGameStatsAfterWinning(request):
             return JsonResponse({'message':'game stats updated success'},status=status.HTTP_200_OK)
             
         except Exception as e:
-            return JsonResponse({'message':f'Issue Occured Updatine User stats'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return JsonResponse({'message':f'Issue Occured Updatine User stats: {str(e)}'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     else:
         return JsonResponse({'message':'Invalid request'},status=status.HTTP_400_BAD_REQUEST)
 # needs to handle these routes 

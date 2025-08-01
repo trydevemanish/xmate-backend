@@ -77,12 +77,23 @@ def loginUser(request):
             exixtedUser.save()
 
             print(refresh_token)
-            
-            return JsonResponse({
+
+            response = JsonResponse({
                 'message':'Login successfully',
                 'access_token' :access_token,
                 'refresh_token' : refresh_token
-            },status=status.HTTP_200_OK)
+            })
+
+            response.set_cookie(
+                key='refresh_token',
+                value=refresh_token,
+                httponly=True,
+                secure=True,            # Only over HTTPS
+                samesite='Strict',      # or 'Lax' depending on your use case
+                max_age=7 * 24 * 60 * 60  # e.g. 7 days
+            )
+            
+            return response
 
         except Exception as e:
             return JsonResponse({'message':f'Failed to login User: {str(e)}'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -122,56 +133,23 @@ def logoutUser(request):
 @csrf_exempt
 @protectedRoute
 def fetchLoginUserdetail(request):
-    pass
-    
-
-# update the user stats after winning 
-@csrf_exempt
-def updateStatsAfterWinning(request):
-    if request.method == 'POST':
+    if request.method == 'GET':
         try:
-            data = json.loads(request.body)
-            id = data.get('userid')
+            id = request.userid
 
             if not id:
-                return JsonResponse({'message':'Id not present'},status=status.HTTP_404_NOT_FOUND)
+                return JsonResponse({'message':'Unauthoriised user'},status=status.HTTP_404_NOT_FOUND)
             
             user = User.objects.get(id=id)
 
             if not user:
                 return JsonResponse({'message':'Invalid Id user not found'},status=status.HTTP_404_NOT_FOUND)
             
-            user.Update_stats(win=True)
-
-            return JsonResponse({'message':'User Match Updated'},status=status.HTTP_200_OK)
+            serialisedUser = UserSerializer(user)
+            
+            return JsonResponse({'message':'User Data','data':serialisedUser.data},status=status.HTTP_200_OK)
             
         except Exception as e:
-            return JsonResponse({'message':f'Issue Occured Updatine User stats'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    else:
-        return JsonResponse({'message':'Invalid request'},status=status.HTTP_400_BAD_REQUEST)
-
-
-# update the user stats after loosing 
-@csrf_exempt
-def updateStatsAfterLoosing(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            id = data.get('userid')
-
-            if not id:
-                return JsonResponse({'message':'Id not present'},status=status.HTTP_404_NOT_FOUND)
-            
-            user = User.objects.get(id=id)
-
-            if not user:
-                return JsonResponse({'message':'Invalid Id user not found'},status=status.HTTP_404_NOT_FOUND)
-            
-            user.Update_stats(loss=True)
-
-            return JsonResponse({'message':'User Match Updated'},status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return JsonResponse({'message':f'Issue Occured Updatine User stats'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    else:
-        return JsonResponse({'message':'Invalid request'},status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse({'message':f'Issue Occured fetching User detail'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    else : 
+        return JsonResponse({'message':'Invalid request'},status=405)

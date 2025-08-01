@@ -30,7 +30,7 @@ def verifyToken(token):
     
     except jwt.ExpiredSignatureError:
         print('token expired')
-        return JsonResponse({'message':'token expired'},status=status.HTTP_404_NOT_FOUND) 
+        return JsonResponse({'message':'token expired'},status=status.HTTP_401_UNAUTHORIZED) 
     
     except jwt.InvalidTokenError:
         print('invalid token')
