@@ -6,4 +6,5 @@ urlpatterns = [
     path('login/',views.loginUser,name="loginuser"),
     path('logout/',views.logoutUser,name="logout"),
     path('user/info/',views.fetchLoginUserdetail,name="fetchuserdetail"),
+    path('check_rank/',views.fetchAllUserForPlayerRank),
 ]

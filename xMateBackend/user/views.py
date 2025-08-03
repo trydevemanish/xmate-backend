@@ -153,3 +153,28 @@ def fetchLoginUserdetail(request):
             return JsonResponse({'message':f'Issue Occured fetching User detail'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     else : 
         return JsonResponse({'message':'Invalid request'},status=405)
+
+
+@csrf_exempt
+def fetchAllUserForPlayerRank(request):
+    if request.method == 'GET':
+        try:
+            allUser = User.objects.all().order_by('-total_points')
+            if not allUser:
+                return JsonResponse({'message':'Issue Ocuured while fetching All User'},status=status.HTTP_400_BAD_REQUEST)
+
+            print('if this print then users are fetched')
+            
+            serialisedUserAllData = UserSerializer(allUser,many=True)
+
+            print('if this print then ok till serialisers')
+
+            # if not serialisedUserAllData.data:
+            #     return JsonResponse({'message':'Issue Ocuured while Serialising all user data'},status=status.HTTP_400_BAD_REQUEST)
+            
+            return JsonResponse({'message':'Fetched all Serialised User Data','data':serialisedUserAllData.data},status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return JsonResponse({'message':f'Issue Occured fetching Rank detail: {str(e)}'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    else : 
+        return JsonResponse({'message':'Invalid request'},status=405)
