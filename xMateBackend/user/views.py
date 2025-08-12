@@ -137,8 +137,8 @@ def fetchLoginUserdetail(request):
         try:
             id = request.userid
 
-            if not id:
-                return JsonResponse({'message':'Unauthoriised user'},status=status.HTTP_404_NOT_FOUND)
+            if type(id) != int:
+                return JsonResponse({'message':'UnAuthorised user'},status=status.HTTP_401_UNAUTHORIZED)
             
             user = User.objects.get(id=id)
 

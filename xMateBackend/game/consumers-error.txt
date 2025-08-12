@@ -1,11 +1,10 @@
 import json
 import chess
-from .models import Game
 from urllib.parse import parse_qs
-from collections import defaultdict
-from asgiref.sync import sync_to_async 
-from .serializers import GameSerializer
 from channels.generic.websocket import AsyncWebsocketConsumer
+from asgiref.sync import sync_to_async
+from .models import Game
+from collections import defaultdict
 
 boards = defaultdict(chess.Board)
 user_connections = {}
@@ -23,13 +22,63 @@ class GameComsumer(AsyncWebsocketConsumer):
 
             print(f"WebSocket connection attempt: game_id={self.game_id}, user={self.user}, user_id={self.user_id}")
 
+            print("DEBUG:", {
+                "game_id": self.game_id,
+                "user": self.user,
+                "user_id": self.user_id,
+                "game": str(self.game),
+                "player_1": self.game.player_1.id if self.game else None,
+                "player_2": self.game.player_2.id if self.game else None
+            })
 
-            if not self.user or not self.user_id:
-                print('username and userid not present')
+            if not self.game_id:
+                print('Closing the connection no game_id was provided')
                 await self.close()
                 return
             
+            print("DEBUG:", {
+                "game_id": self.game_id,
+                "user": self.user,
+                "user_id": self.user_id,
+                "game": str(self.game),
+                "player_1": self.game.player_1.id if self.game else None,
+                "player_2": self.game.player_2.id if self.game else None
+            })
+            
+            if not self.user or not self.user_id:
+                print("Closing connection: Missing user or user_id")
+                await self.close()
+                return
+            
+            self.game = await sync_to_async(Game.objects.filter(game_id=self.game_id).select_related('player_1', 'player_2').first)()
 
+            print("DEBUG:", {
+                "game_id": self.game_id,
+                "user": self.user,
+                "user_id": self.user_id,
+                "game": str(self.game),
+                "player_1": self.game.player_1.id if self.game else None,
+                "player_2": self.game.player_2.id if self.game else None
+            })
+
+            if not self.game:
+                print('Closing the connection game id is invalid') 
+                await self.close()
+                return
+            
+            print("DEBUG:", {
+                "game_id": self.game_id,
+                "user": self.user,
+                "user_id": self.user_id,
+                "game": str(self.game),
+                "player_1": self.game.player_1.id if self.game else None,
+                "player_2": self.game.player_2.id if self.game else None
+            })
+
+            if self.user_id != str(self.game.player_1.id) and self.user_id != str(self.game.player_2.id):
+                print("Closing connection: User is not part of this game")
+                await self.close()
+                return
 
             if self.user_id in user_connections:
                 print(f"Duplicate connection detected for user {self.user_id}. Closing old connection.")
@@ -41,41 +90,21 @@ class GameComsumer(AsyncWebsocketConsumer):
                     )
                 except Exception as e:
                     print(f"Failed to close old connection: {e}")
+                    # Remove stale connection if it no longer exists
                     if self.user_id in user_connections:
                         del user_connections[self.user_id]
-
-
-
-            self.game = await sync_to_async(Game.objects.filter(game_id=self.game_id).select_related('player_1', 'player_2').first)()
-
-
-
-
-            if not self.game:
-                print('Issue Occured while fetching game')
-                self.close()
-                return 
             
-
-            
-            
-            if self.user_id != str(self.game.player_1.id) and self.user_id != str(self.game.player_2.id):
-                print("Closing connection: User is not part of this game")
-                await self.close()
-                return
-            
-
-            user_connections[self.user_id] = self.channel_name
-            print('marking online the user',self.user_id)
-            
-
 
             await self.channel_layer.group_add(
                 self.room_group_name,
                 self.channel_name
             )
 
-
+            # Mark the user as online
+            user_connections[self.user_id] = self.channel_name
+            print('marking online the user',self.user_id)
+            
+            # Initialize the chess board if it doesn't exist
             if self.game_id not in boards:
                 board = chess.Board()
                 for move_uci in self.game.moves:
@@ -88,21 +117,18 @@ class GameComsumer(AsyncWebsocketConsumer):
                             {
                                 "type": "game_event",
                                 "event": "move_not_legal",
-                                "message": f"${move} is not a legal move - game distrupted: dismiss this game"
+                                "message": f"${move} is not a legal move"
                             }
                         )
-                        
+                        await self.close()
+                        return
+                    
                 boards[self.game_id] = board
             else:
                 board = boards[self.game_id]
 
-            
-
-
-            await self.update_player_status()
             await self.accept()
-
-            
+            await self.update_player_status()
 
             await self.channel_layer.group_send(
                 self.room_group_name,
@@ -114,32 +140,31 @@ class GameComsumer(AsyncWebsocketConsumer):
                 }
             )
 
-
-            
         except Exception as e:
             print(f"Error during WebSocket connection: {e}")
             await self.close()
             return
+    
+    async def force_disconnect(self, event):
+        # Gracefully close the old connection
+        await self.close()
 
-
-
-
-    async def disconnect(self,close_code):
+    async def disconnect(self, close_code):
         try:
             await self.channel_layer.group_discard(
                 self.room_group_name,
                 self.channel_name
             )
 
+            # Mark the user as offline
             if self.user_id in user_connections:
                 del user_connections[self.user_id]
 
             # Update and broadcast player status
             await self.update_player_status()
-
+        
         except Exception as e:
             print(f"Error during WebSocket disconnection: {e}")
-
 
 
     async def receive(self,text_data):
@@ -149,7 +174,6 @@ class GameComsumer(AsyncWebsocketConsumer):
 
             if action == 'make-move':
                 try:
-
                     # board instance from the dictaniory
                     board = boards[self.game_id]
                     move_passed = text_data_json.get('move_passed')
@@ -158,8 +182,9 @@ class GameComsumer(AsyncWebsocketConsumer):
                     move_passed_converted_from_uci = chess.Move.from_uci(move_passed)
 
                     
-                    if board.is_legal(move_passed_converted_from_uci):
+                    if board.is_legal( move_passed_converted_from_uci):
                         board.push(move_passed_converted_from_uci)
+
                     else:
                         await self.channel_layer.group_send(
                             self.room_group_name,
@@ -222,7 +247,6 @@ class GameComsumer(AsyncWebsocketConsumer):
                     print(f"Issue Occured while Making move: {str(e)}")
                     await self.close()
                     return
-                
 
             elif action == 'last-message':
                 try:
@@ -241,24 +265,20 @@ class GameComsumer(AsyncWebsocketConsumer):
                     await self.close()
                     return
                 
-                
         except Exception as e:
-            print(f"Error during WebSocket Receive: {e}")
+            print(f"Error during WebSocket connection: {e}")
             await self.close()
 
-
-
-
-
+            
     async def update_player_status(self):
         try:
 
             player1_id = str(self.game.player_1.id) if self.game.player_1 else None
-            player2_id = str(self.game.player_2.id) if self.game.player_1 else None
+            player2_id = str(self.game.player_2.id) if self.game.player_2 else None
 
             player_status = {
-                'player1' : 'online' if player1_id in user_connections else 'offline',
-                'player2' : 'online' if player2_id in user_connections else 'offline',
+                'player1': 'online' if player1_id and player1_id in user_connections else 'offline',
+                'player2': 'online' if player2_id and player2_id in user_connections else 'offline'
             }
 
             await self.channel_layer.group_send(
@@ -269,23 +289,26 @@ class GameComsumer(AsyncWebsocketConsumer):
                 }
             )
 
-
         except Exception as e:
-            print(f"Error during WebSocket UpdatePlayer_status: {str(e)}")
+            print(f"Issue Occured while disconnecting the socket {str(e)}")
+            await self.close()
+            return
 
-
-
-
-
-    async def force_disconnect(self, event):
-        await self.close()
-
+    
     async def player_status(self, event):
         await self.send(text_data=json.dumps({
             'action': 'update-player-status',
             'player_status': event['player_status']
         }))
 
+    # to broadcast the game last msg the group
+    async def pass_last_message(self, message):
+        await self.send(text_data=json.dumps({
+            'action': 'last-message',
+            "message": message
+        }))
+
+    # to broadcast the game event of the board to the group
     async def game_event(self, event):
         await self.send(text_data=json.dumps({
             'action': 'game-event',
@@ -293,6 +316,7 @@ class GameComsumer(AsyncWebsocketConsumer):
             'message': event['message']
         }))
 
+    # to broadcast the game_state of the board to the group
     async def game_state(self,event):
         board = boards[self.game_id]
 
@@ -335,3 +359,5 @@ class GameComsumer(AsyncWebsocketConsumer):
 #     if everything is right update the game state 
 #     make a call to add the move to the game instance backend 
 #     and send the fen string to the backend  
+
+

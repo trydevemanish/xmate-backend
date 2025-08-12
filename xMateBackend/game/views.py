@@ -172,9 +172,8 @@ def finding_user_pending_or_inprogess_games(request):
     if request.method == 'GET':
         try:
             userid = request.userid
-
-            if not userid:
-                return JsonResponse({'message':'UnAuthorised user'},status=status.HTTP_400_BAD_REQUEST)
+            if type(userid) != int:
+                return JsonResponse({'message':'UnAuthorised user'},status=status.HTTP_401_UNAUTHORIZED)
             
             try:
                 user_instance = User.objects.get(id=userid)
