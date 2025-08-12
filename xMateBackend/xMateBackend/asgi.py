@@ -19,6 +19,9 @@ import os
 from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 
+BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.append(str(BASE_DIR))
+
 from game.routing import websocket_urlpatterns
 from django.core.asgi import get_asgi_application
 django_asgi_app = get_asgi_application()
