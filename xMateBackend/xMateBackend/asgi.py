@@ -16,6 +16,8 @@ https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
 # application = get_asgi_application()
 
 import os
+from pathlib import Path
+import sys
 from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 
