@@ -30,7 +30,11 @@ SECRET_KEY = 'django-insecure-j721z49la82w73dkr1hs4=j5y&hj*z83fd4uhax5kksn_wx%%(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "xmate-backend.onrender.com"
+    "localhost",
+    "127.0.0.1",
+]
 
 
 # Application definition
