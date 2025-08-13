@@ -31,7 +31,7 @@ SECRET_KEY = 'django-insecure-j721z49la82w73dkr1hs4=j5y&hj*z83fd4uhax5kksn_wx%%(
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    "xmate-backend.onrender.com"
+    "xmate-backend.onrender.com",
     "localhost",
     "127.0.0.1",
 ]
