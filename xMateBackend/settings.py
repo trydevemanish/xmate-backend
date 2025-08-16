@@ -92,11 +92,12 @@ MIDDLEWARE = [
 
 CORS_ORIGIN_WHITELIST = [
     'http://localhost:5173',  # Example: React app on localhost
-    'https://your-frontend-domain.com',
+    'https://xmate-frontend.vercel.app',
+    'https://xmate.vercel.app',
     # Add other allowed origins
 ]
 
-CORS_ORIGIN_ALLOW_ALL = True
+# CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = 'xMateBackend.urls'
