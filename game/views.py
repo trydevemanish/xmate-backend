@@ -282,7 +282,7 @@ def delete_a_game(request):
             
             game_instance.delete()
 
-            return JsonResponse({'message':'Game deleted'},status=status.HTTP_204_NO_CONTENT)
+            return JsonResponse({'message':'Game deleted'},status=status.HTTP_200_OK)
             # if game.status is completed than if game is deleted than only we need to make changes to the user_instance 
             
 
