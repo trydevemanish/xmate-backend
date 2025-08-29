@@ -10,4 +10,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Curl Render App
-        run: curl -s https://xmate-backend.onrender.com/ > /dev/null
+        run: curl -s https://xmate-backend.onrender.com > /dev/null
