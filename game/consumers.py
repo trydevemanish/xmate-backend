@@ -4,7 +4,6 @@ from .models import Game
 from urllib.parse import parse_qs
 from collections import defaultdict
 from asgiref.sync import sync_to_async 
-from .serializers import GameSerializer
 from channels.generic.websocket import AsyncWebsocketConsumer
 
 boards = defaultdict(chess.Board)

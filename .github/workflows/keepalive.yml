@@ -11,3 +11,12 @@ jobs:
     steps:
       - name: Curl Render App
         run: curl -s https://xmate-backend.onrender.com > /dev/null
+
+    steps:
+      - name: Install redis-tools
+        run: sudo apt-get install -y redis-tools
+
+      - name: Ping Redis
+        run: redis-cli -u "$REDIS_URL" ping
+        env: 
+          REDIS_URL: ${{ secrets.REDIS_URL }}
