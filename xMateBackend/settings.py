@@ -41,7 +41,8 @@ ALLOWED_HOSTS = [
 ASGI_APPLICATION = "xMateBackend.asgi.application"
 
 INSTALLED_APPS = [
-    "daphne",
+    # "daphne",
+    "channels",
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -61,21 +62,30 @@ INSTALLED_APPS = [
 #     },
 # }
 
-if os.environ.get("USE_IN_MEMORY", "false").lower() == "true":
-    CHANNEL_LAYERS = {
-        "default": {
-            "BACKEND": "channels.layers.InMemoryChannelLayer"
-        }
+# if os.environ.get("USE_IN_MEMORY", "false").lower() == "true":
+#     CHANNEL_LAYERS = {
+#         "default": {
+#             "BACKEND": "channels.layers.InMemoryChannelLayer"
+#         }
+#     }
+# else:
+#     CHANNEL_LAYERS = {
+#         "default": {
+#             "BACKEND": "channels_redis.core.RedisChannelLayer",
+#             "CONFIG": {
+#                 "hosts": [os.environ["REDIS_URL"]],
+#             },
+#         }
+#     }
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [os.environ["REDIS_URL"]],
+        },
     }
-else:
-    CHANNEL_LAYERS = {
-        "default": {
-            "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {
-                "hosts": [os.environ["REDIS_URL"]],
-            },
-        }
-    }
+}
 
 
 MIDDLEWARE = [
