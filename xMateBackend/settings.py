@@ -41,7 +41,7 @@ ALLOWED_HOSTS = [
 ASGI_APPLICATION = "xMateBackend.asgi.application"
 
 INSTALLED_APPS = [
-    # "daphne",
+    "daphne",
     "channels",
     'django.contrib.admin',
     'django.contrib.auth',

@@ -181,19 +181,6 @@ class GameComsumer(AsyncWebsocketConsumer):
                             "message": f"${move_passed} not legal move"
                         }
                     )
-
-                
-                # adding the move take time to the backend will sure take time so sending the message early that game updated 
-                # Broadcast the game state to both player 
-                await self.channel_layer.group_send(
-                    self.room_group_name,
-                    {
-                        'type' :  'game_state',
-                        'fen'  :   board.fen(),
-                        'turn' :  'White' if board.turn else 'Black',
-                        'move' :  board.peek().uci() if len(board.move_stack) > 0 else ''
-                    }
-                )
                     
                 if board.is_check():
                     await self.channel_layer.group_send(
@@ -230,6 +217,18 @@ class GameComsumer(AsyncWebsocketConsumer):
                 # await sync_to_async(self.game.moves.append(move_passed))()
 
                 await sync_to_async(self.game.save)()
+
+                # adding the move take time to the backend will sure take time so sending the message early that game updated 
+                # Broadcast the game state to both player 
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type' :  'game_state',
+                        'fen'  :   board.fen(),
+                        'turn' :  'White' if board.turn else 'Black',
+                        'move' :  board.peek().uci() if len(board.move_stack) > 0 else ''
+                    }
+                )
 
             except Exception as e:
                 print(f"Issue Occured while Making move: {str(e)}")
