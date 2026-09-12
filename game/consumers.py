@@ -7,6 +7,8 @@ from collections import defaultdict
 from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
+import time
+from django.db import connection
 
 
 import logging
@@ -70,7 +72,10 @@ class GameComsumer(AsyncWebsocketConsumer):
 
             # self.game = await sync_to_async(Game.objects.filter(game_id=self.game_id).select_related('player_1', 'player_2').first())()
 
+            # this is the bottleneck 
             self.game = await get_game_data(self.game_id)
+
+
 
             if not self.game:
                 print('Issue Occured while fetching game')
@@ -93,7 +98,7 @@ class GameComsumer(AsyncWebsocketConsumer):
                     else:
                         await self.channel_layer.group_send(
                             self.room_group_name,
-                            {
+                            { 
                                 "type": "game_event",
                                 "event": "move_not_legal",
                                 "message": f"${move} is not a legal move - game distrupted: dismiss this game"
@@ -162,6 +167,10 @@ class GameComsumer(AsyncWebsocketConsumer):
         if action == 'make-move':
             try:
 
+                start = time.perf_counter()
+                print("start:- ", start)
+
+
                 # board instance from the dictaniory
                 board = boards[self.game_id]
                 move_passed = text_data_json.get('move_passed')
@@ -216,7 +225,42 @@ class GameComsumer(AsyncWebsocketConsumer):
                 self.game.moves.append(move_passed)
                 # await sync_to_async(self.game.moves.append(move_passed))()
 
-                await sync_to_async(self.game.save)()
+
+                # print(f"time sleep{time.sleep()}")
+
+                # ---------------------------
+
+                # db_start = time.perf_counter()
+                # def test_db():
+                #     with connection.cursor() as cursor:
+                #         cursor.execute("SELECT 1")
+                #         cursor.fetchone()
+
+                # await sync_to_async(test_db)()
+                # print("SELECT 1 FIRST:", time.perf_counter() - db_start)
+
+                # -----------------------------
+# DB TEST 2
+# -----------------------------
+                # db_start = time.perf_counter()
+                # await sync_to_async(test_db)()
+                # print("SELECT 1 SECOND:", time.perf_counter() - db_start)
+
+                # ACTUAL SAVE
+                save_start = time.perf_counter()
+                await sync_to_async(self.game.save)(
+                    update_fields=["moves", "updated_at"]
+                )
+                # await sync_to_async(
+                #     lambda: Game.objects.filter(id=self.game.id).update(
+                #         moves=self.game.moves
+                #     )
+                # )()
+
+                print("GAME SAVE:", time.perf_counter() - save_start)
+
+                # ---------------------------
+
 
                 # adding the move take time to the backend will sure take time so sending the message early that game updated 
                 # Broadcast the game state to both player 
@@ -229,6 +273,13 @@ class GameComsumer(AsyncWebsocketConsumer):
                         'move' :  board.peek().uci() if len(board.move_stack) > 0 else ''
                     }
                 )
+                
+
+
+
+                # now i broadcasting move earlier , and hoping that the move will be saveed 
+
+                # await sync_to_async(self.game.save)() # this is the bottleneck
 
             except Exception as e:
                 print(f"Issue Occured while Making move: {str(e)}")
@@ -253,8 +304,8 @@ class GameComsumer(AsyncWebsocketConsumer):
                 await self.close()
                 return
             
-                
-        # except Exception as e:
+                 
+        # except Exception as e: 
         #     print(f"Error during WebSocket Receive: {e}")
         #     await self.close()
         #     return
@@ -286,10 +337,8 @@ class GameComsumer(AsyncWebsocketConsumer):
         # except Exception as e:
             # print(f"Error during WebSocket UpdatePlayer_status: {str(e)}")
 
-
     async def force_disconnect(self, event):
         await self.close()
-
 
     async def player_status(self, event):
         await self.send(text_data=json.dumps({

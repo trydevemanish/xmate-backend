@@ -36,6 +36,22 @@ ALLOWED_HOSTS = [
     "127.0.0.1",
 ]
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+    },
+}
+
 
 # Application definition
 ASGI_APPLICATION = "xMateBackend.asgi.application"
@@ -56,11 +72,11 @@ INSTALLED_APPS = [
 ]
 
 
-# CHANNEL_LAYERS = {
-#     "default": {
-#         "BACKEND": "channels.layers.InMemoryChannelLayer",
-#     },
-# }
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
 
 # if os.environ.get("USE_IN_MEMORY", "false").lower() == "true":
 #     CHANNEL_LAYERS = {
@@ -78,14 +94,14 @@ INSTALLED_APPS = [
 #         }
 #     }
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [os.environ["REDIS_URL"]],
-        },
-    }
-}
+# CHANNEL_LAYERS = {
+#     "default": {
+#         "BACKEND": "channels_redis.core.RedisChannelLayer",
+#         "CONFIG": {
+#             "hosts": [os.environ["REDIS_URL"]],
+#         },
+#     }
+# }
 
 
 MIDDLEWARE = [
@@ -141,6 +157,7 @@ DATABASES = {
         'USER': getenv('PGUSER'),
         'PASSWORD': getenv('PGPASSWORD'),
         'HOST': getenv('PGHOST'),
+        'CONN_MAX_AGE': 600,
         'PORT': '5432',
          'OPTIONS': {
              'sslmode': 'require',
