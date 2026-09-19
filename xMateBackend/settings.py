@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 from os import getenv
+from urllib.parse import parse_qsl, urlparse
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -150,18 +151,64 @@ WSGI_APPLICATION = 'xMateBackend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': getenv('PGDATABASE'),
+#         'USER': getenv('PGUSER'),
+#         'PASSWORD': getenv('PGPASSWORD'),
+#         'HOST': getenv('PGHOST'),
+#         'PORT': '5432',
+#         'OPTIONS': {
+#             'sslmode': 'require',
+#             # "pool": {
+#             #     "min_size": 4,       # Minimum number of connections kept warm in the pool
+#             #     "max_size": 20,      # Maximum number of concurrent connections allowed
+#             #     "timeout": 10.0,     # Seconds to wait for a free connection before failing fast
+#             #     "max_lifetime": 1800,# Automatically close/refresh connections older than 30 mins
+#             #     "max_idle": 300,     # Close idle connections after 5 minutes
+#             # },
+#         },
+#         'DISABLE_SERVER_SIDE_CURSORS': True,
+#         'CONN_HEALTH_CHECKS': True,
+#         'CONN_MAX_AGE' : 600
+#     }
+# }
+
+
+load_dotenv()
+
+# Replace the DATABASES section of your settings.py with this
+tmpPostgres = urlparse(os.getenv("DATABASE_URL"))
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': getenv('PGDATABASE'),
-        'USER': getenv('PGUSER'),
-        'PASSWORD': getenv('PGPASSWORD'),
-        'HOST': getenv('PGHOST'),
-        'CONN_MAX_AGE': 600,
-        'PORT': '5432',
-         'OPTIONS': {
-             'sslmode': 'require',
-        }
+        # 'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'dj_db_conn_pool.backends.postgresql',
+        'NAME': tmpPostgres.path.replace('/', ''),
+        'USER': tmpPostgres.username,
+        'PASSWORD': tmpPostgres.password,
+        'HOST': tmpPostgres.hostname,
+        'PORT': 5432,
+        "OPTIONS": {
+            "sslmode": "require",
+            # "pool": {"min_size": 2, "max_size": 10, "timeout": 30,},
+            # "POOL_OPTIONS": {
+            #     "POOL_SIZE": 5,
+            #     "MAX_OVERFLOW": 10,
+            #     "RECYCLE": 300,
+            # },
+        },
+        'POOL_OPTIONS': {           # <-- top-level, sibling of OPTIONS, not inside it
+            'POOL_SIZE': 5,
+            'MAX_OVERFLOW': 10,
+            'RECYCLE': 300,
+        },
+        # 'OPTIONS': dict(parse_qsl(tmpPostgres.query)),
+        # 'DISABLE_SERVER_SIDE_CURSORS': True,  
+        # 'CONN_HEALTH_CHECKS': True,          
+        # 'CONN_MAX_AGE': 600, 
+        'CONN_MAX_AGE': 0, 
     }
 }
 

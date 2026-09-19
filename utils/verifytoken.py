@@ -21,10 +21,10 @@ def verifyToken(token):
         if not user_id:
             return JsonResponse({'message':'User id not present in payload'},status=status.HTTP_404_NOT_FOUND)
 
-        user = User.objects.get(id=user_id)
+        # user = User.objects.get(id=user_id)
 
-        if not user:
-            return JsonResponse({'message':'Invalis userid in payload'},status=status.HTTP_404_NOT_FOUND)
+        # if not user:
+        #     return JsonResponse({'message':'Invalis userid in payload'},status=status.HTTP_404_NOT_FOUND)
         
         return user_id
     
@@ -43,3 +43,4 @@ def verifyToken(token):
     except Exception as e:
         print('other exception:', str(e))
         return JsonResponse({'message':f'Issue in verifying {str(e)}'},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    

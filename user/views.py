@@ -1,4 +1,5 @@
 import json
+import time
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from utils.generateAccesstoken import generateAccesstoken
@@ -8,8 +9,13 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from .serializers import UserSerializer
 from game.models import Game
-from django.db.models import Q
+from django.db.models import Q, OuterRef, Subquery
 from django.utils import timezone
+from django.contrib.auth import login
+from django.db import connection
+import os
+import threading
+
 
 User = get_user_model()
 
@@ -24,7 +30,7 @@ def registerUser(request):
             email = data.get('email')
             password = data.get('password')
 
-            print(data)
+            # print(data)
 
             if not username or not email or not password:
                 return JsonResponse({'message':'Valid Field are required.'},status=status.HTTP_204_NO_CONTENT)
@@ -55,6 +61,9 @@ def registerUser(request):
 # Login User 
 @csrf_exempt
 def loginUser(request):
+    # data = json.loads(request.body)
+    # email = data.get('email')
+    # return JsonResponse({'data' :email}, status=status.HTTP_200_OK)
 
     if request.method == 'POST':
         try:
@@ -64,22 +73,21 @@ def loginUser(request):
 
             if not email or not password:
                 return JsonResponse({'message':'Invalid Feild'},status=status.HTTP_204_NO_CONTENT)
-            
+
             exixtedUser = User.objects.get(email=email)
 
-            if not exixtedUser:
-                return JsonResponse({'message':'Email is not registerd'},status=status.HTTP_404_NOT_FOUND)
-            
-            if not check_password(password,exixtedUser.password):
-                return JsonResponse({'message':'password did not match'},status=status.HTTP_401_UNAUTHORIZED)
-            
-            # generate access or refresh token 
-            access_token,refresh_token = generateAccesstoken(exixtedUser.id)
-            
+            password_valid = check_password(
+                password,
+                exixtedUser.password
+            )
+
+            if not password_valid:
+                return JsonResponse({'message': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
+            access_token, refresh_token = generateAccesstoken(exixtedUser.id)
+
             exixtedUser.refreshtoken = refresh_token
             exixtedUser.save()
-
-            print(refresh_token)
 
             response = JsonResponse({
                 'message':'Login successfully',
@@ -108,6 +116,7 @@ def loginUser(request):
 @csrf_exempt
 @protectedRoute
 def logoutUser(request):
+    
     if request.method == 'POST':
         try:
 
@@ -162,22 +171,46 @@ def fetchLoginUserdetail(request):
 def fetchAllUserForPlayerRank(request):
     if request.method == 'GET':
         try:
-            allUser = User.objects.all()
+            print()
+            print("---------new req---------")
+
+            print("PROCESS ID:", os.getpid())
+            print("THREAD ID:", threading.get_ident())
+
+            print("CONNECTION OBJECT:", connection.connection)
+
+            if connection.connection is not None:
+                print(">>> Django already has a connection")
+            else:
+                print(">>> Django has no connection yet")
+
+            connection.ensure_connection()
+
+            print("AFTER ENSURE:")
+            print("CONNECTION OBJECT:", connection.connection)
+            print("CONNECTION OBJECT ID:", id(connection.connection))  
+
+            latest_game = Game.objects.filter(
+                Q(player_1=OuterRef('pk')) |
+                Q(player_2=OuterRef('pk'))
+            ).order_by('-created_at')
+
+            allUser = User.objects.annotate(
+                recent_game_date=Subquery(
+                    latest_game.values('created_at')[:1]
+                )
+            )
+
             leaderboard_data = []
 
             for user in allUser:
                 total_games = user.total_game_played
                 wins = user.total_game_win
                 losses = user.total_game_losses
-
-                # this will be count only for the ones who has played more than 10 matches cux if a new user come and play it eould show him as th top 
                 winrate = (wins / total_games) if total_games > 0 else 0
-                recent_user_game = Game.objects.filter(
-                    (Q(player_1=user.id) | Q(player_2=user.id)) &
-                    Q(player_1__isnull=False)
-                ).order_by('-created_at')[:1]
 
-                recent_user_game_date = list(recent_user_game)[0].created_at
+                # recent_user_game_date = list(user.recent_game_date)[0].created_at
+                recent_user_game_date = user.recent_game_date
 
                 if recent_user_game_date:
                     days_ago = (timezone.now() - recent_user_game_date).days
@@ -210,7 +243,7 @@ def fetchAllUserForPlayerRank(request):
 
             if not allUser:
                 return JsonResponse({'message':'Issue Ocuured while fetching All User'},status=status.HTTP_400_BAD_REQUEST)
-
+            
             return JsonResponse({'message':'Fetched all User Data','data':leaderboard_sorted}, safe=False,status=status.HTTP_200_OK)
 
         except Exception as e:
@@ -218,3 +251,61 @@ def fetchAllUserForPlayerRank(request):
     else : 
         return JsonResponse({'message':'Invalid request'},status=405)
     
+
+
+
+
+# # strt = time.perf_counter()
+#             allUser = User.objects.all()
+#             # print("DBCll: ", time.perf_counter()-strt)
+
+#             leaderboard_data = []
+
+#             # dt = time.perf_counter
+#             for user in allUser:
+#                 total_games = user.total_game_played
+#                 wins = user.total_game_win
+#                 losses = user.total_game_losses
+
+#                 # this will be count only for the ones who has played more than 10 matches cux if a new user come and play it eould show him as th top 
+#                 winrate = (wins / total_games) if total_games > 0 else 0
+#                 recent_user_game = Game.objects.filter(
+#                     (Q(player_1=user.id) | Q(player_2=user.id)) &
+#                     Q(player_1__isnull=False)
+#                 ).order_by('-created_at')[:1]
+
+#                 recent_user_game_date = list(recent_user_game)[0].created_at
+
+                # if recent_user_game_date:
+                #     days_ago = (timezone.now() - recent_user_game_date).days
+                #     recent_score = max(0, 30 - days_ago) 
+                # else:
+                #     recent_score = 0
+
+                # leaderboard_score = (
+                #     (winrate * 0.3) + 
+                #     (user.total_points * 0.4) +
+                #     (total_games * 0.2) +
+                #     (recent_score * 0.1) 
+                # )
+
+                # leaderboard_data.append({
+                #     "id": user.id,
+                #     "username": user.username,
+                #     "email" : user.email,
+                #     "total_game_played": total_games,
+                #     "total_game_win": wins,
+                #     "total_game_losses": losses,
+                #     "total_game_draw": user.total_game_draw,
+                #     "total_points": user.total_points,
+                #     "win_rate": round(winrate, 2),
+                #     "leaderboard_score": round(leaderboard_score, 2),
+                #     "recent_game_played" : days_ago
+                # })
+
+#             leaderboard_sorted = sorted(leaderboard_data, key=lambda x: x["leaderboard_score"], reverse=True)
+
+            # if not allUser:
+            #     return JsonResponse({'message':'Issue Ocuured while fetching All User'},status=status.HTTP_400_BAD_REQUEST)
+
+#             return JsonResponse({'message':'Fetched all User Data','data':leaderboard_sorted}, safe=False,status=status.HTTP_200_OK)

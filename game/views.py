@@ -1,4 +1,5 @@
 import json
+import time
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from utils.protectedroute import protectedRoute
@@ -8,6 +9,7 @@ from rest_framework import status
 from django.db.models import Q
 from django.contrib.auth import get_user_model
 User = get_user_model()
+from django.db import connection
 
 # Create your views here. 
 @csrf_exempt
@@ -171,21 +173,33 @@ def checkifPlayer_2_hasJoinedGame(request):
 def finding_user_pending_or_inprogess_games(request):
     if request.method == 'GET':
         try:
+            st = time.perf_counter()
             userid = request.userid
             if type(userid) != int:
                 return JsonResponse({'message':'UnAuthorised user'},status=status.HTTP_401_UNAUTHORIZED)
             
+            st = time.perf_counter()
+            connection.ensure_connection()
+
+            print("ENSURE CONNECTION:",time.perf_counter() - st)
+
             try:
+                user_st = time.perf_counter()
                 user_instance = User.objects.get(id=userid)
+                print("Getting User Instnce: ", time.perf_counter() - user_st)
+
                 if not user_instance or user_instance is None:
                     return JsonResponse({'message':'user id is not valid'},status=status.HTTP_400_BAD_REQUEST)
             except:
                 return JsonResponse({'message': 'User not found'},status=status.HTTP_404_NOT_FOUND)
 
+            gmes_st = time.perf_counter();
             all_the_games_user_created_as_player_1 = Game.objects.filter(
                 player_1=user_instance,
                 game_status='pending',
             ).first()
+
+            print("Clculte gme time: ", time.perf_counter() - gmes_st)
 
             if not all_the_games_user_created_as_player_1:
                 return JsonResponse({'message':'No game is pending'},status=status.HTTP_200_OK)
@@ -195,6 +209,7 @@ def finding_user_pending_or_inprogess_games(request):
             if not all_the_games_user_created_as_player_1_serialised_data:
                 return JsonResponse({'message':'Issue Occured while serialising game data'},status=status.HTTP_400_BAD_REQUEST)
             
+            print("totl: ", time.perf_counter() - st)
             return JsonResponse({'message':'All pending game found','data':all_the_games_user_created_as_player_1_serialised_data.data},status=status.HTTP_200_OK)
 
         except Exception as e:
