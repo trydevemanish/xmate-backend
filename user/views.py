@@ -11,10 +11,12 @@ from .serializers import UserSerializer
 from game.models import Game
 from django.db.models import Q, OuterRef, Subquery
 from django.utils import timezone
-from django.contrib.auth import login
+from django.contrib.auth import login, authenticate
 from django.db import connection
 import os
 import threading
+
+
 
 
 User = get_user_model()
@@ -29,8 +31,6 @@ def registerUser(request):
             username = data.get('username')
             email = data.get('email')
             password = data.get('password')
-
-            # print(data)
 
             if not username or not email or not password:
                 return JsonResponse({'message':'Valid Field are required.'},status=status.HTTP_204_NO_CONTENT)
@@ -95,14 +95,14 @@ def loginUser(request):
                 'refresh_token' : refresh_token
             })
 
-            response.set_cookie(
-                key='refresh_token',
-                value=refresh_token,
-                httponly=True,
-                secure=True,            # Only over HTTPS
-                samesite='Strict',      # or 'Lax' depending on your use case
-                max_age=7 * 24 * 60 * 60  # e.g. 7 days
-            )
+            # response.set_cookie(
+            #     key='refresh_token',
+            #     value=refresh_token,
+            #     httponly=True,
+            #     secure=True,            # Only over HTTPS
+            #     samesite='Strict',      # or 'Lax' depending on your use case
+            #     max_age=7 * 24 * 60 * 60  # e.g. 7 days
+            # )
             
             return response
 
@@ -171,25 +171,6 @@ def fetchLoginUserdetail(request):
 def fetchAllUserForPlayerRank(request):
     if request.method == 'GET':
         try:
-            print()
-            print("---------new req---------")
-
-            print("PROCESS ID:", os.getpid())
-            print("THREAD ID:", threading.get_ident())
-
-            print("CONNECTION OBJECT:", connection.connection)
-
-            if connection.connection is not None:
-                print(">>> Django already has a connection")
-            else:
-                print(">>> Django has no connection yet")
-
-            connection.ensure_connection()
-
-            print("AFTER ENSURE:")
-            print("CONNECTION OBJECT:", connection.connection)
-            print("CONNECTION OBJECT ID:", id(connection.connection))  
-
             latest_game = Game.objects.filter(
                 Q(player_1=OuterRef('pk')) |
                 Q(player_2=OuterRef('pk'))
