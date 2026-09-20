@@ -183,8 +183,8 @@ tmpPostgres = urlparse(os.getenv("DATABASE_URL"))
 
 DATABASES = {
     'default': {
-        # 'ENGINE': 'django.db.backends.postgresql',
-        'ENGINE': 'dj_db_conn_pool.backends.postgresql',
+        'ENGINE': 'django.db.backends.postgresql',
+        # 'ENGINE': 'dj_db_conn_pool.backends.postgresql',
         # 'NAME': tmpPostgres.path.replace('/', ''),
         'NAME': tmpPostgres.path.lstrip('/'),
         'USER': tmpPostgres.username,
@@ -193,18 +193,18 @@ DATABASES = {
         'PORT': 5432,
         "OPTIONS": {
             "sslmode": "require",
-            # "pool": {"min_size": 2, "max_size": 10, "timeout": 30,},
+            "pool": {"min_size": 2, "max_size": 10, "timeout": 30,},
             # "POOL_OPTIONS": {
             #     "POOL_SIZE": 5,
             #     "MAX_OVERFLOW": 10,
             #     "RECYCLE": 300,
             # },
         },
-        'POOL_OPTIONS': {           # <-- top-level, sibling of OPTIONS, not inside it
-            'POOL_SIZE': 5,
-            'MAX_OVERFLOW': 10,
-            'RECYCLE': 300,
-        },
+        # 'POOL_OPTIONS': {           # <-- top-level, sibling of OPTIONS, not inside it
+        #     'POOL_SIZE': 5,
+        #     'MAX_OVERFLOW': 10,
+        #     'RECYCLE': 300,
+        # },
         # 'OPTIONS': dict(parse_qsl(tmpPostgres.query)),
         # 'DISABLE_SERVER_SIDE_CURSORS': True,  
         # 'CONN_HEALTH_CHECKS': True,          
